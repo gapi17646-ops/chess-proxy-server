@@ -1,0 +1,14 @@
+﻿{
+  "name": "chess-proxy-server",
+  "version": "1.0.0",
+  "description": "Прокси-сервер для шахмат с DeepSeek",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0",
+    "cors": "^2.8.5"
+  }
+}
