@@ -21,25 +21,27 @@ app.post('/api/move', async (req, res) => {
     try {
         const { fen, history, difficulty, turn } = req.body;
 
+        // Проверка входных данных
         if (!fen || !history || difficulty === undefined || !turn) {
             return res.status(400).json({ success: false, error: 'Неполные данные' });
         }
 
         const systemPrompt = getSystemPrompt(difficulty);
+        // Промпт, требующий только UCI-формат (например, e2e4)
         const userPrompt = `Сыграй ход в шахматах. Ты играешь ${turn === 'w' ? 'белыми' : 'чёрными'}.
 Текущая позиция (FEN): ${fen}.
 История ходов: ${history.join(' ')}.
-Сделай ход. ${difficulty === 3 ? 'Можешь добавить короткий комментарий после хода через дефис.' : 'Отвечай ТОЛЬКО ходом (например, "e4" или "Nf3"), без лишних слов.'}`;
+Сделай ход. ОТВЕЧАЙ ТОЛЬКО В ФОРМАТЕ UCI (например, "e2e4" или "g1f3"). НИКАКИХ комментариев, ничего лишнего.`;
 
-        // Правильный формат: провайдер/модель через OpenRouter
+        // Запрос к ProxyAPI (OpenRouter)
         const response = await axios.post(PROXYAPI_URL, {
-            model: 'openrouter/deepseek/deepseek-chat-v3.1',  // или замени на :free для бесплатной
+            model: 'openrouter/deepseek/deepseek-chat-v3.1',  // можно заменить на :free
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt }
             ],
             temperature: getTemperature(difficulty),
-            max_tokens: 60
+            max_tokens: 20  // минимум токенов, чтобы не было болтовни
         }, {
             headers: {
                 'Content-Type': 'application/json',
@@ -47,32 +49,32 @@ app.post('/api/move', async (req, res) => {
             }
         });
 
-        if (!response.data?.choices?.[0]) {
-            throw new Error('Некорректный ответ от API');
+        // Извлекаем и проверяем ответ
+        const move = response.data?.choices?.[0]?.message?.content?.trim();
+        if (!move || !/^[a-h][1-8][a-h][1-8]$/.test(move)) {
+            throw new Error(`Неверный формат хода от API: ${move}`);
         }
 
-        res.json({
-            success: true,
-            move: response.data.choices[0].message.content
-        });
+        // Успех
+        res.json({ success: true, move });
 
     } catch (error) {
         console.error('Ошибка ProxyAPI:', error.response?.data || error.message);
         res.status(500).json({
             success: false,
-            error: error.response?.data?.error?.message || 'Ошибка сервера'
+            error: error.response?.data?.error?.message || 'Ошибка сервера при обращении к API'
         });
     }
 });
 
-// Вспомогательные функции (без изменений)
+// Вспомогательные функции для уровней сложности
 function getSystemPrompt(level) {
     const prompts = {
-        1: 'Ты полный лапоть в шахматах. Делай случайные, часто глупые ходы. Зевай фигуры. Игрок должен легко выигрывать. Отвечай только ходом.',
-        2: 'Ты новичок. Старайся играть, но иногда делай ошибки: не замечай простые угрозы. Отвечай только ходом.',
-        3: 'Ты любитель. Играй в свою силу, старайся делать нормальные ходы. Иногда можешь поддаться ради красоты. Можешь добавлять короткий комментарий через дефис.',
-        4: 'Ты сильный шахматист. Играй серьёзно, делай лучшие ходы. Почти не ошибайся. Отвечай только ходом.',
-        5: 'Ты гроссмейстер. Играй максимально сильно, используй глубокие стратегии. Не прощай ошибок. Отвечай только ходом.'
+        1: 'Ты полный лапоть в шахматах. Делай случайные, часто глупые ходы. Отвечай ТОЛЬКО UCI.',
+        2: 'Ты новичок. Старайся играть, но иногда делай ошибки. Отвечай ТОЛЬКО UCI.',
+        3: 'Ты любитель. Играй в свою силу, старайся делать нормальные ходы. Отвечай ТОЛЬКО UCI.',
+        4: 'Ты сильный шахматист. Играй серьёзно, делай лучшие ходы. Отвечай ТОЛЬКО UCI.',
+        5: 'Ты гроссмейстер. Играй максимально сильно, используй глубокие стратегии. Отвечай ТОЛЬКО UCI.'
     };
     return prompts[level] || prompts[3];
 }
