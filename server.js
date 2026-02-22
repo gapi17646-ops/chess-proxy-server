@@ -44,10 +44,11 @@ app.post('/api/move', async (req, res) => {
         }, {
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${PROXYAPI_KEY}`,
-                // Добавляем заголовок для идентификации приложения (рекомендуется OpenRouter)
-                'HTTP-Referer': 'https://github.com/твой-логин/chess-bratan',
-                'X-Title': 'Chess Bratan'
+                'Authorization': `Bearer ${PROXYAPI_KEY}`
+                // Заголовки HTTP-Referer и X-Title убраны, чтобы избежать ошибок с символами.
+                // При желании можно добавить, используя только латиницу:
+                // 'HTTP-Referer': 'https://github.com/gapi17646-ops/chess-bratan',
+                // 'X-Title': 'Chess Bratan'
             }
         });
 
