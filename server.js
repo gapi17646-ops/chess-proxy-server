@@ -5,10 +5,10 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// ========== ТВОЙ КЛЮЧ PROXYAPI (OpenRouter) ==========
+// ========== ТВОИ ДАННЫЕ ==========
 const PROXYAPI_KEY = 'sk-2gCqWGQConyKtFaTS79BvokizJQ9iOm4';
-// Новый адрес для OpenRouter (см. https://proxyapi.ru/openrouter)
-const PROXYAPI_URL = 'https://openrouter.api.proxyapi.ru/v1/chat/completions';
+// Единый OpenAI-совместимый endpoint ProxyAPI
+const PROXYAPI_URL = 'https://openai.api.proxyapi.ru/v1/chat/completions';
 
 app.use(cors());
 app.use(express.json());
@@ -21,7 +21,6 @@ app.post('/api/move', async (req, res) => {
     try {
         const { fen, history, difficulty, turn } = req.body;
 
-        // Проверка, что данные пришли
         if (!fen || !history || difficulty === undefined || !turn) {
             return res.status(400).json({ success: false, error: 'Неполные данные' });
         }
@@ -32,9 +31,9 @@ app.post('/api/move', async (req, res) => {
 История ходов: ${history.join(' ')}.
 Сделай ход. ${difficulty === 3 ? 'Можешь добавить короткий комментарий после хода через дефис.' : 'Отвечай ТОЛЬКО ходом (например, "e4" или "Nf3"), без лишних слов.'}`;
 
-        // Используем актуальную модель DeepSeek через OpenRouter
+        // Правильный формат: провайдер/модель через OpenRouter
         const response = await axios.post(PROXYAPI_URL, {
-            model: 'deepseek/deepseek-chat-v3.1', // Можно заменить на :free для бесплатной версии
+            model: 'openrouter/deepseek/deepseek-chat-v3.1',  // или замени на :free для бесплатной
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt }
@@ -45,15 +44,10 @@ app.post('/api/move', async (req, res) => {
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${PROXYAPI_KEY}`
-                // Заголовки HTTP-Referer и X-Title убраны, чтобы избежать ошибок с символами.
-                // При желании можно добавить, используя только латиницу:
-                // 'HTTP-Referer': 'https://github.com/gapi17646-ops/chess-bratan',
-                // 'X-Title': 'Chess Bratan'
             }
         });
 
-        // Проверка структуры ответа от OpenRouter
-        if (!response.data || !response.data.choices || !response.data.choices[0]) {
+        if (!response.data?.choices?.[0]) {
             throw new Error('Некорректный ответ от API');
         }
 
@@ -63,11 +57,10 @@ app.post('/api/move', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Ошибка при обращении к ProxyAPI:', error.response?.data || error.message);
-        // Возвращаем понятную ошибку клиенту
+        console.error('Ошибка ProxyAPI:', error.response?.data || error.message);
         res.status(500).json({
             success: false,
-            error: error.response?.data?.error?.message || 'Ошибка сервера при обращении к API'
+            error: error.response?.data?.error?.message || 'Ошибка сервера'
         });
     }
 });
